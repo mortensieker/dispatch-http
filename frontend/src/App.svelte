@@ -5,7 +5,10 @@
     GetFilePath,
     LoadFile,
     SaveFile,
+    GetVersion,
+    CheckForUpdate,
   } from "../wailsjs/go/main/App.js";
+  import { BrowserOpenURL } from "../wailsjs/runtime/runtime.js";
   import { parseHttpFile, findRequestAtLine, HTTP_METHODS } from "./lib/parser";
   import type { RequestBlock } from "./lib/parser";
 
@@ -38,6 +41,8 @@ Content-Type: application/json
   let nextId = 1;
   let fileLoaded = false;
   let filePath = "";
+  let appVersion = "";
+  let updateInfo: { updateAvailable: boolean; latestVersion: string; releaseURL: string } | null = null;
 
   let editorContent = "";
 
@@ -62,6 +67,13 @@ Content-Type: application/json
     const content = await LoadFile();
     editorContent = content || DEFAULT_CONTENT;
     fileLoaded = true;
+
+    appVersion = await GetVersion();
+    CheckForUpdate().then((info) => {
+      if (info.updateAvailable) {
+        updateInfo = info;
+      }
+    });
   });
 
   let saveTimer: ReturnType<typeof setTimeout>;
@@ -302,8 +314,16 @@ Content-Type: application/json
 <main>
   <div class="toolbar">
     <span class="app-title">dispatch</span>
+    {#if appVersion}
+      <span class="app-version">{appVersion}</span>
+    {/if}
     {#if filePath}
       <span class="file-path">{filePath}</span>
+    {/if}
+    {#if updateInfo}
+      <button class="update-badge" on:click={() => BrowserOpenURL(updateInfo.releaseURL)}>
+        Update available: {updateInfo.latestVersion}
+      </button>
     {/if}
   </div>
 
@@ -479,6 +499,32 @@ Content-Type: application/json
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .app-version {
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+    font-size: 11px;
+    color: #6b7b8b;
+  }
+
+  .update-badge {
+    margin-left: auto;
+    padding: 3px 10px;
+    background: #4ec9b022;
+    border: 1px solid #4ec9b044;
+    border-radius: 3px;
+    color: #4ec9b0;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .update-badge:hover {
+    background: #4ec9b033;
+    border-color: #4ec9b066;
   }
 
   /* ── Split panes ── */
