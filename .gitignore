@@ -1,0 +1,17 @@
+logs
+*.log
+npm-debug.log*
+
+build/bin
+build/darwin
+build/windows
+build/Release
+
+frontend/node_modules
+
+node_modules
+frontend/dist
+
+*.zip
+.DS_Store
+plan.md
