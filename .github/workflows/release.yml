@@ -22,8 +22,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - uses: dAppServer/wails-build-action@v2.3
+      - uses: snider/build@v3
         with:
           build-name: dispatch
           build-platform: ${{ matrix.platform }}
