@@ -143,6 +143,55 @@ Content-Type: application/json
     }
   }
 
+  function handleEditorKeydown(e: KeyboardEvent) {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+
+      if (e.shiftKey) {
+        // Remove one level of indentation from the current line
+        const lineStart = editorContent.lastIndexOf("\n", start - 1) + 1;
+        const lineText = editorContent.substring(lineStart, end);
+        let removed = 0;
+        let newLineText: string;
+        if (lineText.startsWith("\t")) {
+          newLineText = lineText.substring(1);
+          removed = 1;
+        } else if (lineText.startsWith("  ")) {
+          newLineText = lineText.substring(2);
+          removed = 2;
+        } else if (lineText.startsWith(" ")) {
+          newLineText = lineText.substring(1);
+          removed = 1;
+        } else {
+          return;
+        }
+        editorContent =
+          editorContent.substring(0, lineStart) +
+          newLineText +
+          editorContent.substring(lineStart + lineText.length);
+        tick().then(() => {
+          const newPos = Math.max(lineStart, start - removed);
+          textarea.selectionStart = newPos;
+          textarea.selectionEnd = newPos;
+        });
+      } else {
+        // Insert a tab character at the cursor
+        editorContent =
+          editorContent.substring(0, start) +
+          "\t" +
+          editorContent.substring(end);
+        tick().then(() => {
+          textarea.selectionStart = start + 1;
+          textarea.selectionEnd = start + 1;
+        });
+      }
+
+      updateCursorLine();
+    }
+  }
+
   function handleGutterClick(lineIdx: number) {
     const block = blocks.find((b) => b.methodLine === lineIdx);
     if (block) {
@@ -370,6 +419,7 @@ Content-Type: application/json
             class="editor"
             bind:this={textarea}
             bind:value={editorContent}
+            on:keydown={handleEditorKeydown}
             on:keyup={updateCursorLine}
             on:mouseup={updateCursorLine}
             on:scroll={syncScroll}
