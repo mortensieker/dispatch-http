@@ -49,8 +49,6 @@ Content-Type: application/json
   let editorContent = "";
 
   let textarea: HTMLTextAreaElement;
-  let highlightEl: HTMLPreElement;
-  let gutterEl: HTMLDivElement;
   let cursorLine = 0;
   let blocks: RequestBlock[] = [];
 
@@ -96,15 +94,6 @@ Content-Type: application/json
     cursorLine = editorContent.substring(0, pos).split("\n").length - 1;
   }
 
-  function syncScroll() {
-    if (gutterEl && textarea) {
-      gutterEl.scrollTop = textarea.scrollTop;
-    }
-    if (highlightEl && textarea) {
-      highlightEl.scrollTop = textarea.scrollTop;
-      highlightEl.scrollLeft = textarea.scrollLeft;
-    }
-  }
 
   function handleKeydown(e: KeyboardEvent) {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
@@ -296,7 +285,7 @@ Content-Type: application/json
         <span class="pane-label">Request</span>
       </div>
       <div class="editor-wrap">
-        <div class="gutter" bind:this={gutterEl}>
+        <div class="gutter">
           {#each gutterLines as line (line.index)}
             <div class="gutter-line" class:gutter-line-active={line.index === cursorLine}>
               {#if line.methodBlock}
@@ -312,7 +301,7 @@ Content-Type: application/json
           {/each}
         </div>
         <div class="editor-container">
-          <pre class="editor-highlight" bind:this={highlightEl} aria-hidden="true">{@html highlightedHtml}</pre>
+          <pre class="editor-highlight" aria-hidden="true">{@html highlightedHtml}</pre>
           <textarea
             class="editor"
             bind:this={textarea}
@@ -320,7 +309,6 @@ Content-Type: application/json
             on:keydown={handleEditorKeydown}
             on:keyup={updateCursorLine}
             on:mouseup={updateCursorLine}
-            on:scroll={syncScroll}
             spellcheck="false"
             autocomplete="off"
             autocorrect="off"
