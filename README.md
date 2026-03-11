@@ -37,3 +37,24 @@ wails build
 ```
 
 The compiled binary will be in `build/bin/`.
+
+## Releasing
+
+Releases are automated via GitHub Actions. Pushing a version tag triggers a build for Linux, macOS, and Windows, and publishes a GitHub Release with the binaries attached.
+
+1. Make sure all changes are committed and pushed to `main`.
+
+2. Create and push a version tag:
+   ```bash
+   git tag v1.2.3
+   git push origin v1.2.3
+   ```
+
+3. The [Release workflow](.github/workflows/release.yml) will run automatically and:
+   - Build `dispatch` for `linux/amd64`, `darwin/universal`, and `windows/amd64`
+   - Bundle each binary into a `.zip` archive
+   - Create a GitHub Release with auto-generated release notes and the archives attached
+
+4. Monitor progress in the **Actions** tab on GitHub. Once the workflow completes the release appears under **Releases**.
+
+> Tags must start with `v` (e.g. `v1.2.3`). Use [semantic versioning](https://semver.org/).
