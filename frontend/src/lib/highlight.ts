@@ -43,3 +43,11 @@ export function hlJsonValue(raw: string): string {
 export function highlightJson(str: string): string {
   return str.split("\n").map(hlJsonLine).join("\n");
 }
+
+/**
+ * Wrap {{varName}} references in a span for syntax highlighting.
+ * Safe to apply to already-HTML-escaped strings since { and } are not HTML-escaped.
+ */
+export function hlVarRefs(html: string): string {
+  return html.replace(/\{\{([^}]+)\}\}/g, '<span class="hl-var-ref">{{$1}}</span>');
+}

@@ -98,6 +98,37 @@ POST https://example.com/two`;
   });
 });
 
+describe("# @name annotation", () => {
+  it("extracts name from # @name comment before method line", () => {
+    const input = `### Verify
+# @name verify
+POST https://example.com/verify
+Content-Type: application/json
+
+{"token": "abc"}`;
+    const blocks = parseHttpFile(input);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].name).toBe("verify");
+  });
+
+  it("leaves name undefined when no # @name present", () => {
+    const blocks = parseHttpFile("GET https://example.com");
+    expect(blocks[0].name).toBeUndefined();
+  });
+
+  it("picks up name from separator block", () => {
+    const input = `### First
+# @name firstReq
+GET https://example.com/one
+
+### Second
+GET https://example.com/two`;
+    const blocks = parseHttpFile(input);
+    expect(blocks[0].name).toBe("firstReq");
+    expect(blocks[1].name).toBeUndefined();
+  });
+});
+
 describe("findRequestAtLine", () => {
   const blocks = parseHttpFile(`### First
 GET https://example.com/one

@@ -10,8 +10,15 @@
   } from "../wailsjs/go/main/App.js";
   import { BrowserOpenURL } from "../wailsjs/runtime/runtime.js";
   import { parseHttpFile, findRequestAtLine, HTTP_METHODS } from "./lib/parser";
-  import { escapeHtml } from "./lib/highlight";
+  import { escapeHtml, hlVarRefs } from "./lib/highlight";
   import type { RequestBlock } from "./lib/parser";
+  import {
+    parseVariableDecls,
+    buildVarMap,
+    resolveVariables,
+    type VariableDecl,
+    type ResponseCapture,
+  } from "./lib/variables";
   import ResponseEntry from "./lib/ResponseEntry.svelte";
 
   interface ResponseData {
@@ -26,17 +33,27 @@
     timestamp: Date;
   }
 
-  const DEFAULT_CONTENT = `### Simple GET
-GET https://httpbin.org/get
+  const DEFAULT_CONTENT = `@baseUrl = https://httpbin.org
+@name = dispatch
+
+### Simple GET
+GET {{baseUrl}}/get
 
 ### POST with JSON body
-POST https://httpbin.org/post
+# @name postExample
+POST {{baseUrl}}/post
 Content-Type: application/json
 
 {
-  "name": "dispatch",
+  "name": "{{name}}",
   "version": "1.0"
-}`;
+}
+
+### Use response from previous request
+# The json.name field from the POST response above
+@echoedName = {{postExample.response.body.json.name}}
+
+GET {{baseUrl}}/get?echo={{echoedName}}`;
 
   let responses: ResponseData[] = [];
   let loading = false;
@@ -49,10 +66,14 @@ Content-Type: application/json
   let editorContent = "";
 
   let textarea: HTMLTextAreaElement;
+  let editorWrap: HTMLDivElement;
   let cursorLine = 0;
   let blocks: RequestBlock[] = [];
+  let varDecls: VariableDecl[] = [];
+  let responseStore = new Map<string, ResponseCapture>();
 
   $: blocks = parseHttpFile(editorContent);
+  $: varDecls = parseVariableDecls(editorContent);
   $: lineCount = editorContent.split("\n").length;
   $: highlightedHtml = highlightSyntax(editorContent, blocks);
   $: gutterLines = Array.from({ length: lineCount }, (_, i) => ({
@@ -92,6 +113,20 @@ Content-Type: application/json
     if (!textarea) return;
     const pos = textarea.selectionStart;
     cursorLine = editorContent.substring(0, pos).split("\n").length - 1;
+    scrollToCursorLine();
+  }
+
+  function scrollToCursorLine() {
+    if (!editorWrap) return;
+    const lineHeight = 21;
+    const paddingTop = 12;
+    const top = paddingTop + cursorLine * lineHeight;
+    const bottom = top + lineHeight;
+    if (bottom > editorWrap.scrollTop + editorWrap.clientHeight) {
+      editorWrap.scrollTop = bottom - editorWrap.clientHeight;
+    } else if (top < editorWrap.scrollTop) {
+      editorWrap.scrollTop = top;
+    }
   }
 
 
@@ -151,12 +186,32 @@ Content-Type: application/json
   async function runRequest(block: RequestBlock) {
     loading = true;
     try {
-      const resp = await Execute(block.method, block.url, block.body);
+      const vars = buildVarMap(varDecls, responseStore);
+      const resolvedUrl = resolveVariables(block.url, vars);
+      const resolvedBody = resolveVariables(block.body, vars);
+      const resolvedHeaders = Object.fromEntries(
+        Object.entries(block.headers).map(([k, v]) => [k, resolveVariables(v, vars)])
+      );
+
+      const resp = await Execute(block.method, resolvedUrl, resolvedHeaders, resolvedBody);
+
+      if (block.name) {
+        let parsedBody: unknown = null;
+        try { parsedBody = JSON.parse(resp.body); } catch { /* not JSON */ }
+        responseStore.set(block.name, {
+          body: resp.body,
+          parsedBody,
+          headers: resp.headers,
+          status: resp.status,
+        });
+        responseStore = responseStore; // trigger reactivity
+      }
+
       responses = [
         {
           id: nextId++,
           method: block.method,
-          url: block.url,
+          url: resolvedUrl,
           status: resp.status,
           headers: resp.headers,
           body: resp.body,
@@ -180,7 +235,7 @@ Content-Type: application/json
 
   // ── Editor syntax highlighting ──
 
-  type LineKind = "separator" | "comment" | "method" | "header" | "body" | "blank" | "text";
+  type LineKind = "separator" | "comment" | "method" | "header" | "body" | "blank" | "text" | "var-decl";
 
   function classifyLines(content: string, blks: RequestBlock[]): LineKind[] {
     const lines = content.split("\n");
@@ -191,6 +246,7 @@ Content-Type: application/json
       if (t.startsWith("###")) kinds[i] = "separator";
       else if (t === "") kinds[i] = "blank";
       else if (t.startsWith("#") || t.startsWith("//")) kinds[i] = "comment";
+      else if (/^@\w+\s*=/.test(t)) kinds[i] = "var-decl";
     }
 
     for (const block of blks) {
@@ -244,18 +300,28 @@ Content-Type: application/json
     return escapeHtml(raw);
   }
 
+  function hlVarDeclLine(line: string): string {
+    const m = line.match(/^(@\w+)(\s*=\s*)(.*)$/);
+    if (!m) return hlVarRefs(escapeHtml(line));
+    const [, name, eq, value] = m;
+    return `<span class="hl-var-name">${escapeHtml(name)}</span><span class="hl-punct">${escapeHtml(eq)}</span><span class="hl-var-val">${hlVarRefs(escapeHtml(value))}</span>`;
+  }
+
   function highlightSyntax(content: string, blks: RequestBlock[]): string {
     const lines = content.split("\n");
     const kinds = classifyLines(content, blks);
     return lines.map((line, i) => {
+      let hl: string;
       switch (kinds[i]) {
-        case "separator": return `<span class="hl-sep">${escapeHtml(line)}</span>`;
-        case "comment": return `<span class="hl-cmt">${escapeHtml(line)}</span>`;
-        case "method": return hlMethodLine(line);
-        case "header": return hlHeaderLine(line);
-        case "body": return hlJsonLine(line);
-        default: return escapeHtml(line);
+        case "separator": hl = `<span class="hl-sep">${escapeHtml(line)}</span>`; break;
+        case "comment": hl = `<span class="hl-cmt">${escapeHtml(line)}</span>`; break;
+        case "method": hl = hlMethodLine(line); break;
+        case "header": hl = hlHeaderLine(line); break;
+        case "body": hl = hlJsonLine(line); break;
+        case "var-decl": hl = hlVarDeclLine(line); break;
+        default: hl = escapeHtml(line);
       }
+      return hlVarRefs(hl);
     }).join("\n") + "\n";
   }
 </script>
@@ -284,7 +350,7 @@ Content-Type: application/json
       <div class="pane-header">
         <span class="pane-label">Request</span>
       </div>
-      <div class="editor-wrap">
+      <div class="editor-wrap" bind:this={editorWrap}>
         <div class="gutter">
           {#each gutterLines as line (line.index)}
             <div class="gutter-line" class:gutter-line-active={line.index === cursorLine}>

@@ -70,7 +70,7 @@ func (a *App) SaveFile(content string) error {
 	return os.WriteFile(a.defaultFilePath(), []byte(content), 0644)
 }
 
-func (a *App) Execute(method, url string, body string) Response {
+func (a *App) Execute(method, url string, headers map[string]string, body string) Response {
 	start := time.Now()
 
 	var requestBody io.Reader
@@ -82,7 +82,11 @@ func (a *App) Execute(method, url string, body string) Response {
 	if err != nil {
 		return Response{Error: err.Error()}
 	}
-	if body != "" {
+
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	if body != "" && req.Header.Get("Content-Type") == "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
 
@@ -94,14 +98,14 @@ func (a *App) Execute(method, url string, body string) Response {
 
 	respBody, _ := io.ReadAll(resp.Body)
 
-	headers := make(map[string]string)
+	respHeaders := make(map[string]string)
 	for key := range resp.Header {
-		headers[key] = resp.Header.Get(key)
+		respHeaders[key] = resp.Header.Get(key)
 	}
 
 	return Response{
 		Status:   resp.StatusCode,
-		Headers:  headers,
+		Headers:  respHeaders,
 		Body:     string(respBody),
 		Duration: time.Since(start).Milliseconds(),
 	}

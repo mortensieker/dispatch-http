@@ -284,6 +284,9 @@ main {
 .hl-jstr { color: #ce9178; }
 .hl-jnum { color: #b5cea8; }
 .hl-jbool { color: #569cd6; }
+.hl-var-name { color: #c586c0; font-weight: 600; }
+.hl-var-val { color: #ce9178; }
+.hl-var-ref { color: #ffd700; }
 
 /* ── Collapsible long JSON values ── */
 

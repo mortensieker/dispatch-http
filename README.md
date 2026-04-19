@@ -12,6 +12,41 @@ A lightweight desktop HTTP client for crafting and sending requests. Write `.htt
 - Response viewer with status, headers, body, and timing
 - Auto-save to `~/.config/dispatch/requests.http` (or equivalent config dir)
 - Send with `Ctrl+Enter` or click the gutter play button
+- Variables — define reusable values with `@name = value` and interpolate with `{{name}}`
+- Response chaining — capture response body fields into variables with `@token = {{login.response.body.access_token}}`
+
+## Variables
+
+Declare variables at the top of your file (or anywhere between requests) using `@name = value`. Reference them anywhere in the file with `{{name}}`.
+
+```http
+@baseUrl = https://api.example.com
+@token = secret123
+
+GET {{baseUrl}}/users
+Authorization: Bearer {{token}}
+```
+
+### Response chaining
+
+Name a request with `# @name <id>`, then reference its response body fields in later variable declarations:
+
+```http
+### Login
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "username": "alice", "password": "secret" }
+
+### Use the token from the login response
+@accessToken = {{login.response.body.access_token}}
+
+GET {{baseUrl}}/profile
+Authorization: Bearer {{accessToken}}
+```
+
+Variable declarations are processed in order, so earlier variables can be referenced by later ones.
 
 ## Tech Stack
 

@@ -6,6 +6,7 @@ export interface RequestBlock {
   startLine: number; // 0-based line index where this block starts
   endLine: number;   // 0-based line index where this block ends (inclusive)
   methodLine: number; // 0-based line index of the method+URL line
+  name?: string;     // from # @name annotation — used for response capture
 }
 
 export const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
@@ -94,7 +95,13 @@ function buildBlock(
     body = lines.slice(bodyStart, end + 1).join('\n').trimEnd();
   }
 
-  return { method, url, headers, body, startLine: start, endLine: end, methodLine: mLine };
+  let name: string | undefined;
+  for (let i = start; i <= mLine; i++) {
+    const m = lines[i].match(/^#\s*@name\s+(\S+)/);
+    if (m) { name = m[1]; break; }
+  }
+
+  return { method, url, headers, body, startLine: start, endLine: end, methodLine: mLine, name };
 }
 
 function parseMethodUrl(line: string): { method: string; url: string } {
