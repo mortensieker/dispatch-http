@@ -6,6 +6,9 @@ on:
 
 jobs:
   build:
+    permissions:
+      contents: write
+
     strategy:
       fail-fast: false
       matrix:
@@ -61,32 +64,15 @@ jobs:
           EOF
           codesign --deep --force --sign - --entitlements /tmp/entitlements.plist build/bin/dispatch.app
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dispatch-${{ matrix.os }}
-          path: build/bin/*
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
-
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Create release assets
+      - name: Package
+        shell: bash
         run: |
-          cd artifacts
-          for dir in */; do
-            name="${dir%/}"
-            (cd "$dir" && zip -r "../../${name}.zip" .)
-          done
+          cd build/bin
+          zip -r "../../dispatch-${{ matrix.os }}.zip" .
 
       - uses: softprops/action-gh-release@v2
         with:
-          files: "*.zip"
+          files: dispatch-${{ matrix.os }}.zip
           generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

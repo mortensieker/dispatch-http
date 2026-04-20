@@ -1,4 +1,4 @@
-.PHONY: dev build test install clean
+.PHONY: dev build test install clean release
 
 # Run in development mode (hot reload)
 dev:
@@ -20,3 +20,11 @@ install:
 # Remove build output
 clean:
 	rm -rf build/bin
+
+# Release: make release TAG=v1.2.3
+release: guard-TAG test
+	git tag $(TAG)
+	git push origin main $(TAG)
+
+guard-%:
+	@[ -n "$($(*))" ] || (echo "Error: $* is required. Usage: make release TAG=v1.2.3"; exit 1)
