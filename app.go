@@ -11,13 +11,20 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 var version = "dev"
 
+type appConfig struct {
+	FilePath string `json:"filePath,omitempty"`
+}
+
 type App struct {
-	ctx    context.Context
-	client *http.Client
+	ctx      context.Context
+	client   *http.Client
+	filePath string
 }
 
 func NewApp() *App {
@@ -26,8 +33,34 @@ func NewApp() *App {
 	}
 }
 
+func (a *App) configPath() string {
+	return filepath.Join(a.dataDir(), "config.json")
+}
+
+func (a *App) loadConfig() {
+	a.filePath = a.defaultFilePath()
+	data, err := os.ReadFile(a.configPath())
+	if err != nil {
+		return
+	}
+	var cfg appConfig
+	if err := json.Unmarshal(data, &cfg); err == nil && cfg.FilePath != "" {
+		a.filePath = cfg.FilePath
+	}
+}
+
+func (a *App) saveConfig() error {
+	dir := a.dataDir()
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	data, _ := json.MarshalIndent(appConfig{FilePath: a.filePath}, "", "  ")
+	return os.WriteFile(a.configPath(), data, 0644)
+}
+
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
+	a.loadConfig()
 }
 
 type Response struct {
@@ -51,11 +84,11 @@ func (a *App) defaultFilePath() string {
 }
 
 func (a *App) GetFilePath() string {
-	return a.defaultFilePath()
+	return a.filePath
 }
 
 func (a *App) LoadFile() string {
-	data, err := os.ReadFile(a.defaultFilePath())
+	data, err := os.ReadFile(a.filePath)
 	if err != nil {
 		return ""
 	}
@@ -63,11 +96,27 @@ func (a *App) LoadFile() string {
 }
 
 func (a *App) SaveFile(content string) error {
-	dir := a.dataDir()
+	dir := filepath.Dir(a.filePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	return os.WriteFile(a.defaultFilePath(), []byte(content), 0644)
+	return os.WriteFile(a.filePath, []byte(content), 0644)
+}
+
+func (a *App) ChooseFile() string {
+	path, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Open HTTP file",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "HTTP Files (*.http)", Pattern: "*.http"},
+			{DisplayName: "All Files (*.*)", Pattern: "*.*"},
+		},
+	})
+	if err != nil || path == "" {
+		return ""
+	}
+	a.filePath = path
+	a.saveConfig()
+	return path
 }
 
 func (a *App) Execute(method, url string, headers map[string]string, body string) Response {

@@ -58,6 +58,25 @@ main {
   white-space: nowrap;
 }
 
+.file-choose-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  cursor: pointer;
+  color: #4a5a6a;
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.file-choose-btn:hover {
+  color: #cdd6f4;
+  background: #2a3a4a;
+}
+
 .app-version {
   font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
   font-size: 11px;
@@ -65,7 +84,6 @@ main {
 }
 
 .update-badge {
-  margin-left: auto;
   padding: 3px 10px;
   background: #4ec9b022;
   border: 1px solid #4ec9b044;
