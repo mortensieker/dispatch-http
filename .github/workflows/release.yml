@@ -47,15 +47,25 @@ jobs:
         env:
           NODE_OPTIONS: '--max-old-space-size=4096'
 
-      - name: Package
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           cd build/bin
           zip -r "../../dispatch-${{ matrix.os }}.zip" .
 
       - uses: softprops/action-gh-release@v2
+        if: runner.os != 'Windows'
         with:
           files: dispatch-${{ matrix.os }}.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: softprops/action-gh-release@v2
+        if: runner.os == 'Windows'
+        with:
+          files: build/bin/Dispatch.exe
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
