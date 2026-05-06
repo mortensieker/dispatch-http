@@ -6,7 +6,7 @@ export interface VariableDecl {
 export interface ResponseCapture {
   body: string;
   parsedBody: unknown;
-  headers: Record<string, string>;
+  headers: Record<string, string[]>;
   status: number;
 }
 

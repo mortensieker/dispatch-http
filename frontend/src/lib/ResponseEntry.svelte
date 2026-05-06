@@ -4,7 +4,12 @@
   export let method: string;
   export let url: string;
   export let status: number;
-  export let headers: Record<string, string>;
+  export let headers: Record<string, string[]>;
+
+  $: headerRows = Object.entries(headers ?? {})
+    .flatMap(([k, vs]) => vs.map((v) => [k, v] as const))
+    .sort((a, b) => a[0].localeCompare(b[0]));
+  $: headerCount = headerRows.length;
   export let body: string;
   export let duration: number;
   export let error: string;
@@ -54,13 +59,13 @@
         <div class="log-section-label">Body</div>
         <pre class="log-pre">{@html highlightJson(formatBody(body))}</pre>
       </div>
-      {#if headers && Object.keys(headers).length > 0}
+      {#if headerCount > 0}
         <details class="log-headers-details">
           <summary class="log-section-label clickable">
-            Headers ({Object.keys(headers).length})
+            Headers ({headerCount})
           </summary>
           <div class="log-headers">
-            {#each Object.entries(headers).sort() as [key, value]}
+            {#each headerRows as [key, value], i (i)}
               <div class="log-header-row">
                 <span class="hl-hkey">{key}</span><span class="hl-punct">:</span>
                 <span class="hl-hval">{value}</span>

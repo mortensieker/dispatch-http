@@ -102,6 +102,22 @@ main {
   border-color: #4ec9b066;
 }
 
+.save-error {
+  margin-left: auto;
+  padding: 3px 10px;
+  background: #f4474722;
+  border: 1px solid #f4474766;
+  border-radius: 3px;
+  color: #f47474;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ── Split panes ── */
 
 .panes {
