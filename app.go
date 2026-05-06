@@ -31,11 +31,11 @@ func (a *App) Startup(ctx context.Context) {
 }
 
 type Response struct {
-	Status   int               `json:"status"`
-	Headers  map[string]string `json:"headers"`
-	Body     string            `json:"body"`
-	Duration int64             `json:"duration"`
-	Error    string            `json:"error,omitempty"`
+	Status   int                 `json:"status"`
+	Headers  map[string][]string `json:"headers"`
+	Body     string              `json:"body"`
+	Duration int64               `json:"duration"`
+	Error    string              `json:"error,omitempty"`
 }
 
 func (a *App) dataDir() string {
@@ -78,9 +78,9 @@ func (a *App) Execute(method, url string, headers map[string]string, body string
 		requestBody = strings.NewReader(body)
 	}
 
-	req, err := http.NewRequest(method, url, requestBody)
+	req, err := http.NewRequestWithContext(a.ctx, method, url, requestBody)
 	if err != nil {
-		return Response{Error: err.Error()}
+		return Response{Error: err.Error(), Duration: time.Since(start).Milliseconds()}
 	}
 
 	for k, v := range headers {
@@ -96,19 +96,18 @@ func (a *App) Execute(method, url string, headers map[string]string, body string
 	}
 	defer resp.Body.Close()
 
-	respBody, _ := io.ReadAll(resp.Body)
+	respBody, readErr := io.ReadAll(resp.Body)
 
-	respHeaders := make(map[string]string)
-	for key := range resp.Header {
-		respHeaders[key] = resp.Header.Get(key)
-	}
-
-	return Response{
+	out := Response{
 		Status:   resp.StatusCode,
-		Headers:  respHeaders,
+		Headers:  resp.Header,
 		Body:     string(respBody),
 		Duration: time.Since(start).Milliseconds(),
 	}
+	if readErr != nil {
+		out.Error = "read response body: " + readErr.Error()
+	}
+	return out
 }
 
 type UpdateInfo struct {
@@ -128,7 +127,7 @@ func (a *App) CheckForUpdate() UpdateInfo {
 		return info
 	}
 
-	req, err := http.NewRequest("GET", "https://api.github.com/repos/mortensieker/dispatch-http/releases/latest", nil)
+	req, err := http.NewRequestWithContext(a.ctx, "GET", "https://api.github.com/repos/mortensieker/dispatch-http/releases/latest", nil)
 	if err != nil {
 		return info
 	}

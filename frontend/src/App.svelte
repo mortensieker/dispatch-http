@@ -8,7 +8,7 @@
     GetVersion,
     CheckForUpdate,
   } from "../wailsjs/go/main/App.js";
-  import { BrowserOpenURL } from "../wailsjs/runtime/runtime.js";
+  import { BrowserOpenURL, EventsOn } from "../wailsjs/runtime/runtime.js";
   import { parseHttpFile, findRequestAtLine, HTTP_METHODS } from "./lib/parser";
   import { escapeHtml, hlVarRefs } from "./lib/highlight";
   import type { RequestBlock } from "./lib/parser";
@@ -26,7 +26,7 @@
     method: string;
     url: string;
     status: number;
-    headers: Record<string, string>;
+    headers: Record<string, string[]>;
     body: string;
     duration: number;
     error: string;
@@ -62,6 +62,7 @@ GET {{baseUrl}}/get?echo={{echoedName}}`;
   let filePath = "";
   let appVersion = "";
   let updateInfo: { updateAvailable: boolean; latestVersion: string; releaseURL: string } | null = null;
+  let saveError = "";
 
   let editorContent = "";
 
@@ -95,17 +96,45 @@ GET {{baseUrl}}/get?echo={{echoedName}}`;
         updateInfo = info;
       }
     });
+
+    // Flush pending save when the window is about to close.
+    EventsOn("app:before-close", () => { flushSave(); });
+    window.addEventListener("beforeunload", () => { flushSave(); });
   });
 
-  let saveTimer: ReturnType<typeof setTimeout>;
+  let saveTimer: ReturnType<typeof setTimeout> | undefined;
+  let pendingContent: string | null = null;
+
+  async function doSave(content: string) {
+    try {
+      await SaveFile(content);
+      saveError = "";
+    } catch (err) {
+      saveError = err instanceof Error ? err.message : String(err);
+    }
+  }
+
   function scheduleSave(content: string) {
     if (!fileLoaded) return;
+    pendingContent = content;
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      SaveFile(content);
+      const c = pendingContent;
+      pendingContent = null;
+      saveTimer = undefined;
+      if (c !== null) doSave(c);
     }, 500);
   }
   $: scheduleSave(editorContent);
+
+  function flushSave() {
+    if (saveTimer === undefined) return;
+    clearTimeout(saveTimer);
+    saveTimer = undefined;
+    const c = pendingContent;
+    pendingContent = null;
+    if (c !== null) doSave(c);
+  }
 
   // ── Editor interaction ──
 
@@ -341,6 +370,9 @@ GET {{baseUrl}}/get?echo={{echoedName}}`;
       <button class="update-badge" on:click={() => BrowserOpenURL(updateInfo.releaseURL)}>
         Update available: {updateInfo.latestVersion}
       </button>
+    {/if}
+    {#if saveError}
+      <span class="save-error" title={saveError}>Save failed: {saveError}</span>
     {/if}
   </div>
 
