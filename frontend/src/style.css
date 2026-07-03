@@ -29,7 +29,29 @@ main {
   overflow: hidden;
 }
 
-/* ── Toolbar ── */
+/* ── Native title bar spacer ──
+   The window uses a transparent title bar so the traffic lights sit directly
+   over the app background. This strip provides that background colour (same
+   as the editor) and acts as the window drag handle. */
+
+.titlebar-spacer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  flex-shrink: 0;
+  background: #0d1b2a;
+  --wails-draggable: drag;
+}
+
+.titlebar-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #4ec9b0;
+  letter-spacing: 0.04em;
+}
+
+/* ── Toolbar (bottom status bar) ── */
 
 .toolbar {
   display: flex;
@@ -37,16 +59,8 @@ main {
   gap: 12px;
   padding: 8px 16px;
   background: #1e2d3d;
-  border-bottom: 1px solid #2a3a4a;
+  border-top: 1px solid #2a3a4a;
   flex-shrink: 0;
-}
-
-.app-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #4ec9b0;
-  letter-spacing: 0.04em;
-  text-transform: lowercase;
 }
 
 .file-path {
@@ -56,6 +70,8 @@ main {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
 .file-choose-btn {

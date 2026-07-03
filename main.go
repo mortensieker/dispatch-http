@@ -8,6 +8,7 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -24,8 +25,19 @@ func main() {
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
-		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
-		OnStartup:        app.Startup,
+		BackgroundColour: &options.RGBA{R: 13, G: 27, B: 42, A: 1},
+		Mac: &mac.Options{
+			Appearance: mac.NSAppearanceNameDarkAqua,
+			TitleBar: &mac.TitleBar{
+				TitlebarAppearsTransparent: true,
+				HideTitle:                  true,
+				HideTitleBar:               false,
+				FullSizeContent:            true,
+				UseToolbar:                 false,
+				HideToolbarSeparator:       false,
+			},
+		},
+		OnStartup: app.Startup,
 		OnBeforeClose: func(ctx context.Context) bool {
 			// Give the frontend a moment to flush any debounced save before exit.
 			runtime.EventsEmit(ctx, "app:before-close")

@@ -369,27 +369,8 @@ GET {{baseUrl}}/get?echo={{echoedName}}`;
 <svelte:window on:keydown={handleKeydown} />
 
 <main>
-  <div class="toolbar">
-    <span class="app-title">dispatch</span>
-    {#if appVersion}
-      <span class="app-version">{appVersion}</span>
-    {/if}
-    {#if filePath}
-      <span class="file-path">{filePath}</span>
-    {/if}
-    <button class="file-choose-btn" title="Open file" on:click={chooseFile}>
-      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-      </svg>
-    </button>
-    {#if updateInfo}
-      <button class="update-badge" on:click={() => BrowserOpenURL(updateInfo.releaseURL)}>
-        Update available: {updateInfo.latestVersion}
-      </button>
-    {/if}
-    {#if saveError}
-      <span class="save-error" title={saveError}>Save failed: {saveError}</span>
-    {/if}
+  <div class="titlebar-spacer">
+    <span class="titlebar-title">dispatch</span>
   </div>
 
   <div class="panes">
@@ -462,5 +443,27 @@ GET {{baseUrl}}/get?echo={{echoedName}}`;
         {/if}
       </div>
     </div>
+  </div>
+
+  <div class="toolbar">
+    {#if filePath}
+      <span class="file-path">{filePath}</span>
+    {/if}
+    {#if appVersion}
+      <span class="app-version">{appVersion}</span>
+    {/if}
+    <button class="file-choose-btn" title="Open file" on:click={chooseFile}>
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+      </svg>
+    </button>
+    {#if updateInfo}
+      <button class="update-badge" on:click={() => BrowserOpenURL(updateInfo.releaseURL)}>
+        Update available: {updateInfo.latestVersion}
+      </button>
+    {/if}
+    {#if saveError}
+      <span class="save-error" title={saveError}>Save failed: {saveError}</span>
+    {/if}
   </div>
 </main>
