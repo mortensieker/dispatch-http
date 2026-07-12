@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
+  import { EditorState } from "@codemirror/state";
+  import { EditorView } from "@codemirror/view";
   import {
     Execute,
     GetFilePath,
@@ -10,9 +12,9 @@
     ChooseFile,
   } from "../wailsjs/go/main/App.js";
   import { BrowserOpenURL, EventsOn } from "../wailsjs/runtime/runtime.js";
-  import { parseHttpFile, findRequestAtLine, HTTP_METHODS } from "./lib/parser";
-  import { escapeHtml, hlVarRefs } from "./lib/highlight";
+  import { parseHttpFile, findRequestAtLine } from "./lib/parser";
   import type { RequestBlock } from "./lib/parser";
+  import { createEditorExtensions } from "./lib/editorSetup";
   import {
     parseVariableDecls,
     buildVarMap,
@@ -67,8 +69,8 @@ GET {{baseUrl}}/get?echo={{echoedName}}`;
 
   let editorContent = "";
 
-  let textarea: HTMLTextAreaElement;
-  let editorWrap: HTMLDivElement;
+  let editorHost: HTMLDivElement;
+  let editorView: EditorView;
   let cursorLine = 0;
   let blocks: RequestBlock[] = [];
   let varDecls: VariableDecl[] = [];
@@ -76,12 +78,44 @@ GET {{baseUrl}}/get?echo={{echoedName}}`;
 
   $: blocks = parseHttpFile(editorContent);
   $: varDecls = parseVariableDecls(editorContent);
-  $: lineCount = editorContent.split("\n").length;
-  $: highlightedHtml = highlightSyntax(editorContent, blocks);
-  $: gutterLines = Array.from({ length: lineCount }, (_, i) => ({
-    index: i,
-    methodBlock: blocks.find((b) => b.methodLine === i) || null,
-  }));
+
+  function setEditorContent(text: string) {
+    if (!editorView) return;
+    const current = editorView.state.doc.toString();
+    if (current === text) return;
+    editorView.dispatch({ changes: { from: 0, to: current.length, insert: text } });
+  }
+
+  // ── Resizable panes ──
+
+  const MIN_PANE_WIDTH = 240;
+
+  let panesEl: HTMLDivElement;
+  let requestPaneWidth = 0; // 0 means "not yet measured" — falls back to 50/50 via CSS flex
+  let resizingPanes = false;
+
+  function startResizePanes(e: MouseEvent) {
+    e.preventDefault();
+    resizingPanes = true;
+    if (!requestPaneWidth && panesEl) {
+      requestPaneWidth = panesEl.getBoundingClientRect().width / 2;
+    }
+    window.addEventListener("mousemove", onResizePanes);
+    window.addEventListener("mouseup", stopResizePanes);
+  }
+
+  function onResizePanes(e: MouseEvent) {
+    if (!panesEl) return;
+    const rect = panesEl.getBoundingClientRect();
+    const max = rect.width - MIN_PANE_WIDTH;
+    requestPaneWidth = Math.min(Math.max(e.clientX - rect.left, MIN_PANE_WIDTH), max);
+  }
+
+  function stopResizePanes() {
+    resizingPanes = false;
+    window.removeEventListener("mousemove", onResizePanes);
+    window.removeEventListener("mouseup", stopResizePanes);
+  }
 
   // ── File persistence ──
 
@@ -93,13 +127,31 @@ GET {{baseUrl}}/get?echo={{echoedName}}`;
     const content = await LoadFile();
     editorContent = content || DEFAULT_CONTENT;
     fileLoaded = true;
+    setEditorContent(editorContent);
   }
 
   onMount(async () => {
+    editorView = new EditorView({
+      parent: editorHost,
+      state: EditorState.create({
+        doc: editorContent,
+        extensions: createEditorExtensions({
+          onDocChanged: (content) => { editorContent = content; },
+          onCursorLineChanged: (line) => { cursorLine = line; },
+          onRunLine: (line) => {
+            const block = findRequestAtLine(blocks, line);
+            if (block) runRequest(block);
+          },
+          getBlocks: () => blocks,
+        }),
+      }),
+    });
+
     filePath = await GetFilePath();
     const content = await LoadFile();
     editorContent = content || DEFAULT_CONTENT;
     fileLoaded = true;
+    setEditorContent(editorContent);
 
     appVersion = await GetVersion();
     CheckForUpdate().then((info) => {
@@ -149,76 +201,13 @@ GET {{baseUrl}}/get?echo={{echoedName}}`;
 
   // ── Editor interaction ──
 
-  function updateCursorLine() {
-    if (!textarea) return;
-    const pos = textarea.selectionStart;
-    cursorLine = editorContent.substring(0, pos).split("\n").length - 1;
-    scrollToCursorLine();
-  }
-
-  function scrollToCursorLine() {
-    if (!editorWrap) return;
-    const lineHeight = 21;
-    const paddingTop = 12;
-    const top = paddingTop + cursorLine * lineHeight;
-    const bottom = top + lineHeight;
-    if (bottom > editorWrap.scrollTop + editorWrap.clientHeight) {
-      editorWrap.scrollTop = bottom - editorWrap.clientHeight;
-    } else if (top < editorWrap.scrollTop) {
-      editorWrap.scrollTop = top;
-    }
-  }
-
-
   function handleKeydown(e: KeyboardEvent) {
+    if (e.defaultPrevented) return;
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
       e.preventDefault();
       const block = findRequestAtLine(blocks, cursorLine);
       if (block) runRequest(block);
     }
-  }
-
-  function handleEditorKeydown(e: KeyboardEvent) {
-    if (e.key === "Tab") {
-      e.preventDefault();
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-
-      if (e.shiftKey) {
-        const lineStart = editorContent.lastIndexOf("\n", start - 1) + 1;
-        const lineText = editorContent.substring(lineStart, end);
-        let removed = 0;
-        let newLineText: string;
-        if (lineText.startsWith("\t")) {
-          newLineText = lineText.substring(1); removed = 1;
-        } else if (lineText.startsWith("  ")) {
-          newLineText = lineText.substring(2); removed = 2;
-        } else if (lineText.startsWith(" ")) {
-          newLineText = lineText.substring(1); removed = 1;
-        } else {
-          return;
-        }
-        editorContent =
-          editorContent.substring(0, lineStart) + newLineText + editorContent.substring(lineStart + lineText.length);
-        tick().then(() => {
-          const newPos = Math.max(lineStart, start - removed);
-          textarea.selectionStart = newPos;
-          textarea.selectionEnd = newPos;
-        });
-      } else {
-        editorContent = editorContent.substring(0, start) + "\t" + editorContent.substring(end);
-        tick().then(() => {
-          textarea.selectionStart = start + 1;
-          textarea.selectionEnd = start + 1;
-        });
-      }
-      updateCursorLine();
-    }
-  }
-
-  function handleGutterClick(lineIdx: number) {
-    const block = blocks.find((b) => b.methodLine === lineIdx);
-    if (block) runRequest(block);
   }
 
   // ── Request execution ──
@@ -272,148 +261,27 @@ GET {{baseUrl}}/get?echo={{echoedName}}`;
   function clearResponses() {
     responses = [];
   }
-
-  // ── Editor syntax highlighting ──
-
-  type LineKind = "separator" | "comment" | "method" | "header" | "body" | "blank" | "text" | "var-decl";
-
-  function classifyLines(content: string, blks: RequestBlock[]): LineKind[] {
-    const lines = content.split("\n");
-    const kinds: LineKind[] = new Array(lines.length).fill("text");
-
-    for (let i = 0; i < lines.length; i++) {
-      const t = lines[i].trimStart();
-      if (t.startsWith("###")) kinds[i] = "separator";
-      else if (t === "") kinds[i] = "blank";
-      else if (t.startsWith("#") || t.startsWith("//")) kinds[i] = "comment";
-      else if (/^@\w+\s*=/.test(t)) kinds[i] = "var-decl";
-    }
-
-    for (const block of blks) {
-      kinds[block.methodLine] = "method";
-      let pastBlank = false;
-      for (let i = block.methodLine + 1; i <= block.endLine; i++) {
-        if (kinds[i] === "separator" || kinds[i] === "comment") continue;
-        if (lines[i].trim() === "") { pastBlank = true; kinds[i] = "blank"; continue; }
-        kinds[i] = pastBlank ? "body" : "header";
-      }
-    }
-    return kinds;
-  }
-
-  function hlMethodLine(line: string): string {
-    for (const m of HTTP_METHODS) {
-      if (line.trimStart().startsWith(m + " ")) {
-        const idx = line.indexOf(m);
-        return `${escapeHtml(line.substring(0, idx))}<span class="hl-method">${m}</span> <span class="hl-url">${escapeHtml(line.substring(idx + m.length + 1))}</span>`;
-      }
-    }
-    return escapeHtml(line);
-  }
-
-  function hlHeaderLine(line: string): string {
-    const ci = line.indexOf(":");
-    if (ci > 0) {
-      return `<span class="hl-hkey">${escapeHtml(line.substring(0, ci))}</span><span class="hl-punct">:</span><span class="hl-hval">${escapeHtml(line.substring(ci + 1))}</span>`;
-    }
-    return escapeHtml(line);
-  }
-
-  function hlJsonLine(line: string): string {
-    const m = line.match(/^(\s*)"((?:[^"\\]|\\.)*)"\s*:\s*(.*)/);
-    if (m) {
-      const [, indent, key, rest] = m;
-      return `${indent}<span class="hl-jkey">"${escapeHtml(key)}"</span><span class="hl-punct">:</span> ${hlJsonValue(rest)}`;
-    }
-    const sm = line.match(/^(\s*)"((?:[^"\\]|\\.)*)"\s*(,?)$/);
-    if (sm) return `${sm[1]}<span class="hl-jstr">"${escapeHtml(sm[2])}"</span>${sm[3]}`;
-    return escapeHtml(line);
-  }
-
-  function hlJsonValue(raw: string): string {
-    const t = raw.trim();
-    const trailing = t.endsWith(",") ? "," : "";
-    const v = trailing ? t.slice(0, -1) : t;
-    if (v.startsWith('"') && v.endsWith('"')) return `<span class="hl-jstr">${escapeHtml(v)}</span>${trailing}`;
-    if (/^-?\d/.test(v)) return `<span class="hl-jnum">${escapeHtml(v)}</span>${trailing}`;
-    if (v === "true" || v === "false" || v === "null") return `<span class="hl-jbool">${escapeHtml(v)}</span>${trailing}`;
-    return escapeHtml(raw);
-  }
-
-  function hlVarDeclLine(line: string): string {
-    const m = line.match(/^(@\w+)(\s*=\s*)(.*)$/);
-    if (!m) return hlVarRefs(escapeHtml(line));
-    const [, name, eq, value] = m;
-    return `<span class="hl-var-name">${escapeHtml(name)}</span><span class="hl-punct">${escapeHtml(eq)}</span><span class="hl-var-val">${hlVarRefs(escapeHtml(value))}</span>`;
-  }
-
-  function highlightSyntax(content: string, blks: RequestBlock[]): string {
-    const lines = content.split("\n");
-    const kinds = classifyLines(content, blks);
-    return lines.map((line, i) => {
-      let hl: string;
-      switch (kinds[i]) {
-        case "separator": hl = `<span class="hl-sep">${escapeHtml(line)}</span>`; break;
-        case "comment": hl = `<span class="hl-cmt">${escapeHtml(line)}</span>`; break;
-        case "method": hl = hlMethodLine(line); break;
-        case "header": hl = hlHeaderLine(line); break;
-        case "body": hl = hlJsonLine(line); break;
-        case "var-decl": hl = hlVarDeclLine(line); break;
-        default: hl = escapeHtml(line);
-      }
-      return hlVarRefs(hl);
-    }).join("\n") + "\n";
-  }
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
 
-<main>
+<main class:resizing-panes={resizingPanes}>
   <div class="titlebar-spacer">
     <span class="titlebar-title">dispatch</span>
   </div>
 
-  <div class="panes">
+  <div class="panes" bind:this={panesEl}>
     <!-- Request editor pane -->
-    <div class="pane">
+    <div class="pane" style={requestPaneWidth ? `flex: 0 0 ${requestPaneWidth}px` : ""}>
       <div class="pane-header">
         <span class="pane-label">Request</span>
       </div>
-      <div class="editor-wrap" bind:this={editorWrap}>
-        <div class="gutter">
-          {#each gutterLines as line (line.index)}
-            <div class="gutter-line" class:gutter-line-active={line.index === cursorLine}>
-              {#if line.methodBlock}
-                <button
-                  class="gutter-run"
-                  title="Run {line.methodBlock.method} {line.methodBlock.url}"
-                  on:click={() => handleGutterClick(line.index)}
-                ><svg viewBox="0 0 256 256" width="14" height="14" fill="currentColor"><path d="M231.626,128a16.015,16.015,0,0,1-8.18262,13.96094L54.53027,236.55273a15.87654,15.87654,0,0,1-18.14648-1.74023,15.87132,15.87132,0,0,1-4.74024-17.60156L60.64746,136H136a8,8,0,0,0,0-16H60.64746L31.64355,38.78906A16.00042,16.00042,0,0,1,54.5293,19.44727l168.915,94.59179A16.01613,16.01613,0,0,1,231.626,128Z"/></svg></button>
-              {:else}
-                <span class="line-number">{line.index + 1}</span>
-              {/if}
-            </div>
-          {/each}
-        </div>
-        <div class="editor-container">
-          <pre class="editor-highlight" aria-hidden="true">{@html highlightedHtml}</pre>
-          <textarea
-            class="editor"
-            bind:this={textarea}
-            bind:value={editorContent}
-            on:keydown={handleEditorKeydown}
-            on:keyup={updateCursorLine}
-            on:mouseup={updateCursorLine}
-            spellcheck="false"
-            autocomplete="off"
-            autocorrect="off"
-            autocapitalize="off"
-          ></textarea>
-        </div>
+      <div class="editor-wrap">
+        <div class="editor-host" bind:this={editorHost}></div>
       </div>
     </div>
 
-    <div class="divider"></div>
+    <div class="divider" class:dragging={resizingPanes} on:mousedown={startResizePanes}></div>
 
     <!-- Response log pane -->
     <div class="pane">

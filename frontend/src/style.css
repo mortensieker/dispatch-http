@@ -187,9 +187,35 @@ main {
 }
 
 .divider {
+  position: relative;
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+}
+
+.divider::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
   width: 1px;
   background: #2a3a4a;
-  flex-shrink: 0;
+}
+
+.divider:hover::after,
+.divider.dragging::after {
+  background: #4ec9b0;
+}
+
+.resizing-panes {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.resizing-panes * {
+  user-select: none;
 }
 
 /* ── Editor ── */
@@ -197,71 +223,68 @@ main {
 .editor-wrap {
   display: flex;
   flex: 1;
-  overflow: auto;
   background: #0d1b2a;
   min-height: 0;
 }
 
-.editor-wrap::-webkit-scrollbar {
+.editor-host {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.editor-host .cm-editor {
+  height: 100%;
+}
+
+.editor-host .cm-scroller::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-.editor-wrap::-webkit-scrollbar-track {
+.editor-host .cm-scroller::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.editor-wrap::-webkit-scrollbar-thumb {
+.editor-host .cm-scroller::-webkit-scrollbar-thumb {
   background: #2a3a4a;
   border-radius: 4px;
 }
 
-.editor-wrap::-webkit-scrollbar-thumb:hover {
+.editor-host .cm-scroller::-webkit-scrollbar-thumb:hover {
   background: #3a4a5a;
 }
 
-.gutter {
-  width: 48px;
-  flex-shrink: 0;
-  background: #0f1e2e;
+.editor-host .cm-run-gutter {
   border-right: 1px solid #1a2a3a;
-  padding-top: 12px;
   user-select: none;
-  position: sticky;
-  left: 0;
-  z-index: 2;
-  align-self: flex-start;
-  min-height: 100%;
 }
 
-.gutter-line {
-  height: 21px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
-  font-size: 12px;
-}
-
-.gutter-line-active {
+.editor-host .gutter-line-active {
   background: #1a2a3a;
 }
 
-.line-number {
+.editor-host .line-number {
   color: #3a4a5a;
 }
 
-.gutter-line-active .line-number {
+.editor-host .gutter-line-active .line-number {
   color: #6b7b8b;
 }
 
-.gutter-run {
+.editor-host .gutter-run {
+  appearance: none;
+  -webkit-appearance: none;
   background: none;
   border: none;
+  border-radius: 0;
+  outline: none;
+  box-shadow: none;
+  font: inherit;
   color: #4ec9b0;
-  font-size: 10px;
   cursor: pointer;
   padding: 0;
+  margin: 0;
   width: 100%;
   height: 100%;
   display: flex;
@@ -270,57 +293,9 @@ main {
   transition: color 0.1s;
 }
 
-.gutter-run:hover {
+.editor-host .gutter-run:hover {
   color: #5fd9c0;
   background: #4ec9b011;
-}
-
-.editor-container {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-  align-self: flex-start;
-  min-height: 100%;
-}
-
-.editor-highlight {
-  position: relative;
-  margin: 0;
-  padding: 12px 16px;
-  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
-  font-size: 13px;
-  line-height: 21px;
-  tab-size: 2;
-  white-space: pre;
-  pointer-events: none;
-  color: #d4d4d4;
-  background: transparent;
-  min-width: max-content;
-}
-
-.editor {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  resize: none;
-  border: none;
-  outline: none;
-  background: transparent;
-  color: transparent;
-  caret-color: #d4d4d4;
-  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
-  font-size: 13px;
-  line-height: 21px;
-  padding: 12px 16px;
-  tab-size: 2;
-  white-space: pre;
-  overflow: hidden;
-  z-index: 1;
-}
-
-.editor::selection {
-  background: #264f7880;
 }
 
 /* ── Syntax highlighting ── */
