@@ -23,6 +23,7 @@
     type ResponseCapture,
   } from "./lib/variables";
   import ResponseEntry from "./lib/ResponseEntry.svelte";
+  import HelpModal from "./lib/HelpModal.svelte";
 
   interface ResponseData {
     id: number;
@@ -66,6 +67,7 @@ GET {{baseUrl}}/get?echo={{echoedName}}`;
   let appVersion = "";
   let updateInfo: { updateAvailable: boolean; latestVersion: string; releaseURL: string } | null = null;
   let saveError = "";
+  let helpOpen = false;
 
   let editorContent = "";
 
@@ -325,6 +327,13 @@ GET {{baseUrl}}/get?echo={{echoedName}}`;
         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
       </svg>
     </button>
+    <button class="file-choose-btn" title="Syntax help" on:click={() => (helpOpen = true)}>
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M9.09 9a3 3 0 1 1 5.83 1c0 2-3 3-3 3"/>
+        <line x1="12" y1="17" x2="12" y2="17.01"/>
+      </svg>
+    </button>
     {#if updateInfo}
       <button class="update-badge" on:click={() => BrowserOpenURL(updateInfo.releaseURL)}>
         Update available: {updateInfo.latestVersion}
@@ -335,3 +344,5 @@ GET {{baseUrl}}/get?echo={{echoedName}}`;
     {/if}
   </div>
 </main>
+
+<HelpModal open={helpOpen} onClose={() => (helpOpen = false)} />
