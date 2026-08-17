@@ -110,6 +110,34 @@ GET {{baseUrl}}/get?echo={{echoedName}}`;
     editorView.dispatch({ changes: { from: 0, to: current.length, insert: text } });
   }
 
+  // ── Resizable TOC panel ──
+
+  const MIN_TOC_WIDTH = 120;
+  const MAX_TOC_WIDTH = 400;
+
+  let editorWrapEl: HTMLDivElement;
+  let tocWidth = 180;
+  let resizingToc = false;
+
+  function startResizeToc(e: MouseEvent) {
+    e.preventDefault();
+    resizingToc = true;
+    window.addEventListener("mousemove", onResizeToc);
+    window.addEventListener("mouseup", stopResizeToc);
+  }
+
+  function onResizeToc(e: MouseEvent) {
+    if (!editorWrapEl) return;
+    const rect = editorWrapEl.getBoundingClientRect();
+    tocWidth = Math.min(Math.max(e.clientX - rect.left, MIN_TOC_WIDTH), MAX_TOC_WIDTH);
+  }
+
+  function stopResizeToc() {
+    resizingToc = false;
+    window.removeEventListener("mousemove", onResizeToc);
+    window.removeEventListener("mouseup", stopResizeToc);
+  }
+
   // ── Resizable panes ──
 
   const MIN_PANE_WIDTH = 240;
@@ -289,7 +317,7 @@ GET {{baseUrl}}/get?echo={{echoedName}}`;
 
 <svelte:window on:keydown={handleKeydown} />
 
-<main class:resizing-panes={resizingPanes}>
+<main class:resizing-panes={resizingPanes || resizingToc}>
   <div class="titlebar-spacer">
     <span class="titlebar-title">dispatch</span>
   </div>
@@ -317,9 +345,9 @@ GET {{baseUrl}}/get?echo={{echoedName}}`;
         {/if}
         <span class="pane-label">Request</span>
       </div>
-      <div class="editor-wrap">
+      <div class="editor-wrap" bind:this={editorWrapEl}>
         {#if tocOpen && outline.length > 0}
-          <nav class="toc-panel">
+          <nav class="toc-panel" style="flex: 0 0 {tocWidth}px">
             {#each outline as entry (entry.line)}
               <button
                 class="toc-item"
@@ -332,6 +360,7 @@ GET {{baseUrl}}/get?echo={{echoedName}}`;
               </button>
             {/each}
           </nav>
+          <div class="divider toc-divider" class:dragging={resizingToc} on:mousedown={startResizeToc}></div>
         {/if}
         <div class="editor-host" bind:this={editorHost}></div>
       </div>

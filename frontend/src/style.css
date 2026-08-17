@@ -255,14 +255,16 @@ main {
 }
 
 .toc-panel {
-  flex: 0 0 180px;
   min-width: 0;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   background: #0f1e2e;
-  border-right: 1px solid #1a2a3a;
   padding: 6px 0;
+}
+
+.toc-divider {
+  flex-shrink: 0;
 }
 
 .toc-panel::-webkit-scrollbar { width: 6px; }

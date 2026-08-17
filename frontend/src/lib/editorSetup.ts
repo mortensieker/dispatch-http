@@ -19,13 +19,18 @@ class LineMarker extends GutterMarker {
   constructor(
     private readonly lineNumber: number,
     private readonly block: RequestBlock | null,
-    private readonly onClick: () => void
+    private readonly onClick: () => void,
+    readonly elementClass: string = ""
   ) {
     super();
   }
 
   eq(other: LineMarker): boolean {
-    return other.lineNumber === this.lineNumber && other.block === this.block;
+    return (
+      other.lineNumber === this.lineNumber &&
+      other.block === this.block &&
+      other.elementClass === this.elementClass
+    );
   }
 
   toDOM(): HTMLElement {
@@ -54,10 +59,9 @@ function runGutter(callbacks: EditorCallbacks) {
     lineMarker(view, line) {
       const lineNumber = view.state.doc.lineAt(line.from).number;
       const block = callbacks.getBlocks().find((b) => b.methodLine === lineNumber - 1) ?? null;
-      const marker = new LineMarker(lineNumber, block, () => callbacks.onRunLine(lineNumber - 1));
       const activeLine = view.state.doc.lineAt(view.state.selection.main.head).number;
-      marker.elementClass = lineNumber === activeLine ? "gutter-line-active" : "";
-      return marker;
+      const elementClass = lineNumber === activeLine ? "gutter-line-active" : "";
+      return new LineMarker(lineNumber, block, () => callbacks.onRunLine(lineNumber - 1), elementClass);
     },
     lineMarkerChange(update) {
       return update.docChanged || update.selectionSet;
