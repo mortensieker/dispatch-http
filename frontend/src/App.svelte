@@ -297,7 +297,7 @@ GET {{baseUrl}}/get?echo={{echoedName}}`;
           headers: resp.headers,
           body: resp.body,
           duration: resp.duration,
-          error: resp.error,
+          error: resp.error ?? "",
           timestamp: new Date(),
         },
         ...responses,
@@ -360,13 +360,15 @@ GET {{baseUrl}}/get?echo={{echoedName}}`;
               </button>
             {/each}
           </nav>
-          <div class="divider toc-divider" class:dragging={resizingToc} on:mousedown={startResizeToc}></div>
+          <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+          <div class="divider toc-divider" class:dragging={resizingToc} role="separator" aria-orientation="vertical" on:mousedown={startResizeToc}></div>
         {/if}
         <div class="editor-host" bind:this={editorHost}></div>
       </div>
     </div>
 
-    <div class="divider" class:dragging={resizingPanes} on:mousedown={startResizePanes}></div>
+    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+    <div class="divider" class:dragging={resizingPanes} role="separator" aria-orientation="vertical" on:mousedown={startResizePanes}></div>
 
     <!-- Response log pane -->
     <div class="pane">
@@ -418,7 +420,8 @@ GET {{baseUrl}}/get?echo={{echoedName}}`;
       </svg>
     </button>
     {#if updateInfo}
-      <button class="update-badge" on:click={() => BrowserOpenURL(updateInfo.releaseURL)}>
+      {@const releaseURL = updateInfo.releaseURL}
+      <button class="update-badge" on:click={() => BrowserOpenURL(releaseURL)}>
         Update available: {updateInfo.latestVersion}
       </button>
     {/if}
