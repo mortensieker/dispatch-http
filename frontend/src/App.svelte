@@ -12,8 +12,8 @@
     ChooseFile,
   } from "../wailsjs/go/main/App.js";
   import { BrowserOpenURL, EventsOn } from "../wailsjs/runtime/runtime.js";
-  import { parseHttpFile, findRequestAtLine } from "./lib/parser";
-  import type { RequestBlock } from "./lib/parser";
+  import { parseHttpFile, findRequestAtLine, extractOutline } from "./lib/parser";
+  import type { RequestBlock, OutlineEntry } from "./lib/parser";
   import { createEditorExtensions } from "./lib/editorSetup";
   import {
     parseVariableDecls,
@@ -77,9 +77,31 @@ GET {{baseUrl}}/get?echo={{echoedName}}`;
   let blocks: RequestBlock[] = [];
   let varDecls: VariableDecl[] = [];
   let responseStore = new Map<string, ResponseCapture>();
+  let tocOpen = true;
 
   $: blocks = parseHttpFile(editorContent);
   $: varDecls = parseVariableDecls(editorContent);
+  $: outline = extractOutline(editorContent);
+  $: activeOutlineLine = activeOutlineLineFor(outline, cursorLine);
+
+  function activeOutlineLineFor(entries: OutlineEntry[], line: number): number {
+    let active = -1;
+    for (const entry of entries) {
+      if (entry.line <= line) active = entry.line;
+      else break;
+    }
+    return active;
+  }
+
+  function jumpToLine(line: number) {
+    if (!editorView) return;
+    const docLine = editorView.state.doc.line(line + 1);
+    editorView.dispatch({
+      selection: { anchor: docLine.from },
+      effects: EditorView.scrollIntoView(docLine.from, { y: "start" }),
+    });
+    editorView.focus();
+  }
 
   function setEditorContent(text: string) {
     if (!editorView) return;
@@ -276,9 +298,41 @@ GET {{baseUrl}}/get?echo={{echoedName}}`;
     <!-- Request editor pane -->
     <div class="pane" style={requestPaneWidth ? `flex: 0 0 ${requestPaneWidth}px` : ""}>
       <div class="pane-header">
+        {#if outline.length > 0}
+          <button
+            class="toc-toggle"
+            class:active={tocOpen}
+            title={tocOpen ? "Hide outline" : "Show outline"}
+            on:click={() => (tocOpen = !tocOpen)}
+          >
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="8" y1="6" x2="21" y2="6"/>
+              <line x1="8" y1="12" x2="21" y2="12"/>
+              <line x1="8" y1="18" x2="21" y2="18"/>
+              <line x1="3" y1="6" x2="3.01" y2="6"/>
+              <line x1="3" y1="12" x2="3.01" y2="12"/>
+              <line x1="3" y1="18" x2="3.01" y2="18"/>
+            </svg>
+          </button>
+        {/if}
         <span class="pane-label">Request</span>
       </div>
       <div class="editor-wrap">
+        {#if tocOpen && outline.length > 0}
+          <nav class="toc-panel">
+            {#each outline as entry (entry.line)}
+              <button
+                class="toc-item"
+                class:toc-active={entry.line === activeOutlineLine}
+                style="padding-left: {8 + (entry.level - 2) * 12}px"
+                title={entry.text}
+                on:click={() => jumpToLine(entry.line)}
+              >
+                {entry.text}
+              </button>
+            {/each}
+          </nav>
+        {/if}
         <div class="editor-host" bind:this={editorHost}></div>
       </div>
     </div>

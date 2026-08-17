@@ -116,6 +116,27 @@ function parseMethodUrl(line: string): { method: string; url: string } {
   return { method: '', url: '' };
 }
 
+export interface OutlineEntry {
+  level: number; // number of leading # characters (2-6)
+  text: string;
+  line: number; // 0-based line index of the heading
+}
+
+const HEADING_RE = /^(#{2,6})\s+(.*)$/;
+
+export function extractOutline(content: string): OutlineEntry[] {
+  const lines = content.split('\n');
+  const outline: OutlineEntry[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const match = lines[i].trim().match(HEADING_RE);
+    if (!match) continue;
+    const text = match[2].trim();
+    if (!text) continue;
+    outline.push({ level: match[1].length, text, line: i });
+  }
+  return outline;
+}
+
 export function findRequestAtLine(blocks: RequestBlock[], line: number): RequestBlock | null {
   for (const block of blocks) {
     if (line >= block.startLine && line <= block.endLine) {

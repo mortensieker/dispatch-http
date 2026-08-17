@@ -233,6 +233,69 @@ main {
   min-height: 0;
 }
 
+.toc-toggle {
+  padding: 3px;
+  background: none;
+  border: none;
+  border-radius: 3px;
+  color: #6b7b8b;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s, background 0.15s;
+}
+
+.toc-toggle:hover {
+  color: #a0b0c0;
+  background: #2a3a4a;
+}
+
+.toc-toggle.active {
+  color: #4ec9b0;
+}
+
+.toc-panel {
+  flex: 0 0 180px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: #0f1e2e;
+  border-right: 1px solid #1a2a3a;
+  padding: 6px 0;
+}
+
+.toc-panel::-webkit-scrollbar { width: 6px; }
+.toc-panel::-webkit-scrollbar-track { background: transparent; }
+.toc-panel::-webkit-scrollbar-thumb { background: #2a3a4a; border-radius: 4px; }
+
+.toc-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: #8a9aaa;
+  font-size: 12px;
+  padding: 4px 8px;
+  padding-right: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.1s, background 0.1s;
+}
+
+.toc-item:hover {
+  color: #d4d4d4;
+  background: #16283a;
+}
+
+.toc-item.toc-active {
+  color: #4ec9b0;
+  background: #16283a;
+}
+
 .editor-host .cm-editor {
   height: 100%;
 }
