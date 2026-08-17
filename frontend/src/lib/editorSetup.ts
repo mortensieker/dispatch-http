@@ -94,7 +94,7 @@ const theme = EditorView.theme(
       fontFamily: '"SF Mono", "Fira Code", "Cascadia Code", monospace',
       fontSize: "13px",
       lineHeight: "21px",
-      padding: "12px 16px",
+      padding: "5px 16px",
       caretColor: "#d4d4d4",
     },
     ".cm-scroller": { overflow: "auto" },
